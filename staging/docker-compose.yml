@@ -1,0 +1,132 @@
+version: "3.3"
+
+services:
+
+  nginx-waf:
+    image: build.brokerme.club:5000/brokerme/nginx-waf:latest
+    networks:
+      brokerme:
+        aliases:
+          - nginx-waf
+    ports:
+      - "80:80"
+      - "443:443"
+    # service deployment
+    deploy:
+      mode: global
+      replicas: 1
+      resources:
+        # Hard limit - Docker does not allow to allocate more
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        # Soft limit - Docker makes best effort to return to it
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      # service restart policy
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      # service update configuration
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: continue
+        monitor: 60s
+        max_failure_ratio: 0.3
+      # placement constraint - in this case on 'worker' nodes only
+      #placement:
+        #constraints: [node.role == worker]
+
+  mongo_service:
+    image: mongo:latest
+    networks:
+      brokerme:
+        aliases:
+          - mongo_service
+    volumes:
+      - ./volume/db:/data/db
+      - ./volume/backups:/var/backups/mongobackups
+    # service deployment
+    command: --auth
+    deploy:
+      mode: global
+      replicas: 2
+      resources:
+        # Hard limit - Docker does not allow to allocate more
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        # Soft limit - Docker makes best effort to return to it
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      # service restart policy
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      # service update configuration
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: continue
+        monitor: 60s
+        max_failure_ratio: 0.3
+      # placement constraint - in this case on 'worker' nodes only
+      #placement:
+        #constraints: [node.role == worker]
+
+  app:
+    image: build.brokerme.club:5000/brokerme/app:staging-latest
+    volumes:
+      - ./src:/src
+      - ./src/email_templates:/src/email_templates
+      - ./src/pdftools:/src/pdftools
+      - ./src/contracts:/src/contracts
+      - ./src/node_modules:/src/node_modules
+      - ./src/cvs:/src/cvs
+    ports:
+      - "4000:4000"
+      - "5656:5656"
+      - "3434:3434"
+      - "80:3000"
+      - "4300:4300"
+      - "4200:4200"
+    depends_on:
+      - mongo_service
+    deploy:
+      mode: global
+      replicas: 2
+      resources:
+        # Hard limit - Docker does not allow to allocate more
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        # Soft limit - Docker makes best effort to return to it
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+      # service restart policy
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      # service update configuration
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: continue
+        monitor: 60s
+        max_failure_ratio: 0.3
+      # placement constraint - in this case on 'worker' nodes only
+      #placement:
+        #constraints: [node.role == worker]
+
+networks:
+    brokerme:
